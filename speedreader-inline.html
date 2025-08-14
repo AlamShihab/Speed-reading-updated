@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Reading Trainer</title>
+    <!-- Use Tailwind CSS for a modern and responsive design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use the Inter font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styling for better visual feedback */
+        .highlighted {
+            opacity: 1 !important;
+            font-weight: 700;
+            color: #1d4ed8; /* blue-700 */
+            transition: opacity 0.15s ease-in-out;
+        }
+        .blurry {
+            opacity: 0.25;
+            transition: opacity 0.15s ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+
+    <!-- Main Header -->
+    <div class="flex-none p-6 text-center border-b border-gray-300 dark:border-gray-700">
+        <h1 class="text-3xl font-extrabold text-blue-600 dark:text-blue-400 mb-2">Speed Reading Trainer</h1>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Upload a PDF to begin your training.</p>
+        <div class="flex justify-center">
+            <input
+                id="file-input"
+                type="file"
+                accept="application/pdf"
+                class="block w-full max-w-md text-sm text-gray-500 dark:text-gray-400
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100 cursor-pointer"
+            />
+        </div>
+        <p id="loading-message" class="mt-2 text-sm text-yellow-600 dark:text-yellow-400 hidden">Loading PDF reader library...</p>
+    </div>
+
+    <!-- PDF Text Display Area -->
+    <div id="text-container" class="flex-grow flex items-center justify-center p-6 overflow-y-auto">
+        <div id="reading-area"
+             class="text-justify leading-relaxed max-w-2xl mx-auto transition-all duration-300 ease-in-out"
+             style="font-size: 24px; font-family: 'Inter'; line-height: 36px;">
+            <p id="placeholder-text" class="text-center text-lg text-gray-400 dark:text-gray-600">
+                Please upload a PDF to start reading.
+            </p>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="flex-none p-6 bg-gray-200 dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 rounded-t-xl">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Reading Speed control -->
+            <div class="flex flex-col items-center">
+                <label for="wpm-range" class="block text-sm font-medium mb-2">Reading Speed: <span id="wpm-value">250</span> WPM</label>
+                <input
+                    id="wpm-range"
+                    type="range"
+                    min="10"
+                    max="500"
+                    value="250"
+                    class="w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-700 accent-blue-600 dark:accent-blue-400 cursor-pointer"
+                />
+            </div>
+            
+            <!-- Font Name control -->
+            <div class="flex flex-col items-center">
+                <label for="font-name" class="block text-sm font-medium mb-2">Font Name</label>
+                <select
+                    id="font-name"
+                    class="w-full p-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    <option value="Inter">Inter</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Verdana">Verdana</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                </select>
+            </div>
+            
+            <!-- Font Size control -->
+            <div class="flex flex-col items-center">
+                <label for="font-size" class="block text-sm font-medium mb-2">Font Size: <span id="font-size-value">24</span>px</label>
+                <input
+                    id="font-size"
+                    type="range"
+                    min="12"
+                    max="48"
+                    value="24"
+                    class="w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-700 accent-blue-600 dark:accent-blue-400 cursor-pointer"
+                />
+            </div>
+            
+            <!-- Words at Once control -->
+            <div class="flex flex-col items-center">
+                <label class="block text-sm font-medium mb-2">Words at Once</label>
+                <div class="flex flex-wrap gap-2 justify-center" id="words-at-once-buttons">
+                    <!-- Buttons will be generated by JavaScript -->
+                    <button data-value="1" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-blue-600 text-white shadow-md">1</button>
+                    <button data-value="2" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-400 dark:hover:bg-gray-600">2</button>
+                    <button data-value="3" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-400 dark:hover:bg-gray-600">3</button>
+                    <button data-value="4" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-400 dark:hover:bg-gray-600">4</button>
+                    <button data-value="5" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-400 dark:hover:bg-gray-600">5</button>
+                    <button data-value="6" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-400 dark:hover:bg-gray-600">6</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reading control buttons -->
+        <div class="flex justify-center mt-6 gap-4">
+            <button
+                id="toggle-reading-btn"
+                class="px-6 py-3 rounded-full font-bold shadow-md transform transition-all duration-200 bg-gray-400 cursor-not-allowed text-white"
+                disabled
+            >
+                Start
+            </button>
+            <button
+                id="reset-btn"
+                class="px-6 py-3 rounded-full font-bold shadow-md transform transition-all duration-200 bg-gray-400 cursor-not-allowed text-white"
+                disabled
+            >
+                Reset
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Use a self-executing function to avoid polluting the global scope
+        (function() {
+            // State variables
+            let text = '';
+            let isReading = false;
+            let isPaused = false;
+            let currentWordIndex = 0;
+            let intervalId = null;
+            let isPdfjsLoaded = false;
+            let wpm = 250;
+            let wordsAtOnce = 1;
+            let fontSize = 24;
+            let fontFamily = 'Inter';
+
+            // DOM elements
+            const fileInput = document.getElementById('file-input');
+            const readingArea = document.getElementById('reading-area');
+            const placeholderText = document.getElementById('placeholder-text');
+            const loadingMessage = document.getElementById('loading-message');
+            const toggleReadingBtn = document.getElementById('toggle-reading-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const wpmRange = document.getElementById('wpm-range');
+            const wpmValue = document.getElementById('wpm-value');
+            const fontSizeRange = document.getElementById('font-size');
+            const fontSizeValue = document.getElementById('font-size-value');
+            const fontNameSelect = document.getElementById('font-name');
+            const wordsAtOnceButtons = document.getElementById('words-at-once-buttons');
+
+            // --- Library Loading and Setup ---
+            // Load PDF.js library dynamically
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.3.136/build/pdf.min.js';
+            script.async = true;
+            loadingMessage.classList.remove('hidden');
+            document.body.appendChild(script);
+
+            script.onload = () => {
+                if (window.pdfjsLib) {
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.3.136/build/pdf.worker.min.js';
+                    isPdfjsLoaded = true;
+                    loadingMessage.classList.add('hidden');
+                    // Enable file input after library is loaded
+                    fileInput.disabled = false;
+                }
+            };
+
+            // --- Core Functionality ---
+
+            // Function to extract text from a PDF file
+            const extractTextFromPdf = async (pdfFile) => {
+                if (!isPdfjsLoaded) {
+                    console.error('PDF.js library is not loaded yet.');
+                    return;
+                }
+
+                try {
+                    const arrayBuffer = await pdfFile.arrayBuffer();
+                    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        const pageText = content.items.map(item => item.str).join(' ');
+                        fullText += pageText + ' ';
+                    }
+
+                    // Clean and store the text
+                    const cleanedText = fullText.replace(/\s+/g, ' ').trim();
+                    text = cleanedText;
+                    currentWordIndex = 0;
+                    isReading = false;
+                    isPaused = false;
+                    renderText();
+                    updateButtonStates();
+                } catch (error) {
+                    console.error('Error extracting text from PDF:', error);
+                    readingArea.innerHTML = '<p class="text-center text-lg text-red-500">Failed to load PDF. Please try a different file.</p>';
+                }
+            };
+
+            // Renders the words in the reading area with appropriate styling
+            const renderText = () => {
+                if (!text) {
+                    readingArea.innerHTML = '';
+                    readingArea.appendChild(placeholderText);
+                    return;
+                }
+                const words = text.split(' ');
+                readingArea.innerHTML = words.map((word, index) => {
+                    const isHighlighted = index >= currentWordIndex && index < currentWordIndex + wordsAtOnce;
+                    return `<span class="mx-1 ${isHighlighted ? 'highlighted' : 'blurry'}">${word}</span>`;
+                }).join('');
+
+                // Apply dynamic styles to the reading area
+                readingArea.style.fontSize = `${fontSize}px`;
+                readingArea.style.fontFamily = fontFamily;
+                readingArea.style.lineHeight = `${fontSize * 1.5}px`;
+            };
+
+            // The main reading loop
+            const startReading = () => {
+                const words = text.split(' ');
+                // Stop any previous interval
+                if (intervalId) clearInterval(intervalId);
+
+                const wordsPerSecond = wpm / 60;
+                const intervalDuration = (1000 * wordsAtOnce) / wordsPerSecond;
+
+                intervalId = setInterval(() => {
+                    // Update current word index
+                    currentWordIndex += wordsAtOnce;
+
+                    // If we've reached the end, stop and reset
+                    if (currentWordIndex >= words.length) {
+                        currentWordIndex = 0;
+                        isReading = false;
+                        isPaused = false;
+                        clearInterval(intervalId);
+                        updateButtonStates();
+                    }
+                    
+                    // Re-render the text with the new highlight
+                    renderText();
+                }, intervalDuration);
+            };
+
+            // --- Event Handlers and Listeners ---
+
+            // Update button states (disabled/enabled)
+            const updateButtonStates = () => {
+                const hasText = text.length > 0;
+                toggleReadingBtn.disabled = !hasText;
+                resetBtn.disabled = !hasText;
+
+                if (!hasText) {
+                    toggleReadingBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    resetBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                } else {
+                    toggleReadingBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    resetBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                }
+
+                if (isReading) {
+                    toggleReadingBtn.textContent = 'Pause';
+                    toggleReadingBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    toggleReadingBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+                } else {
+                    toggleReadingBtn.textContent = 'Start';
+                    toggleReadingBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
+                    toggleReadingBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                }
+                
+                if (isPaused) {
+                     toggleReadingBtn.textContent = 'Resume';
+                }
+            };
+
+            // Main start/pause functionality
+            toggleReadingBtn.addEventListener('click', () => {
+                if (isReading && !isPaused) {
+                    isPaused = true;
+                    clearInterval(intervalId);
+                    updateButtonStates();
+                } else if (isReading && isPaused) {
+                    isPaused = false;
+                    startReading();
+                    updateButtonStates();
+                } else {
+                    isReading = true;
+                    isPaused = false;
+                    startReading();
+                    updateButtonStates();
+                }
+            });
+
+            // Reset functionality
+            resetBtn.addEventListener('click', () => {
+                isReading = false;
+                isPaused = false;
+                currentWordIndex = 0;
+                clearInterval(intervalId);
+                renderText();
+                updateButtonStates();
+            });
+
+            // File upload handler
+            fileInput.addEventListener('change', (event) => {
+                const uploadedFile = event.target.files[0];
+                if (uploadedFile && uploadedFile.type === 'application/pdf') {
+                    extractTextFromPdf(uploadedFile);
+                } else {
+                    alert('Please upload a valid PDF file.');
+                }
+            });
+
+            // WPM control
+            wpmRange.addEventListener('input', (e) => {
+                wpm = Number(e.target.value);
+                wpmValue.textContent = wpm;
+                if (isReading && !isPaused) {
+                    startReading();
+                }
+            });
+
+            // Font Size control
+            fontSizeRange.addEventListener('input', (e) => {
+                fontSize = Number(e.target.value);
+                fontSizeValue.textContent = fontSize;
+                readingArea.style.fontSize = `${fontSize}px`;
+                readingArea.style.lineHeight = `${fontSize * 1.5}px`;
+            });
+            
+            // Font Name control
+            fontNameSelect.addEventListener('change', (e) => {
+                fontFamily = e.target.value;
+                readingArea.style.fontFamily = fontFamily;
+            });
+
+            // Words at Once buttons
+            wordsAtOnceButtons.addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (button) {
+                    // Update active button styling
+                    wordsAtOnceButtons.querySelectorAll('button').forEach(btn => {
+                        btn.classList.remove('bg-blue-600', 'text-white', 'shadow-md');
+                        btn.classList.add('bg-gray-300', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-400', 'dark:hover:bg-gray-600');
+                    });
+                    button.classList.add('bg-blue-600', 'text-white', 'shadow-md');
+                    button.classList.remove('bg-gray-300', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300', 'hover:bg-gray-400', 'dark:hover:bg-gray-600');
+                    
+                    // Update the wordsAtOnce state
+                    wordsAtOnce = Number(button.dataset.value);
+
+                    // Restart reading if it's currently active to apply the change
+                    if (isReading && !isPaused) {
+                        startReading();
+                    }
+                }
+            });
+
+            // Initial call to set up button states
+            updateButtonStates();
+        })();
+    </script>
+</body>
+</html>
