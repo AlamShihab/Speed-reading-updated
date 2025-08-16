@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speed Reading Trainer</title>
+    <!-- Use Tailwind CSS for a modern and responsive design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use the Inter font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Prevent body scroll */
+            background-color: #f3f4f6; /* Light gray background to match the image */
+        }
+        /* Custom styling for better visual feedback */
+        .highlighted {
+            opacity: 1 !important;
+            font-weight: 700;
+            color: black;
+            transition: opacity 0.15s ease-in-out;
+        }
+        .blurry {
+            opacity: 0.1;
+            color: black;
+            transition: opacity 0.15s ease-in-out;
+        }
+        /* Style for the reading view container to fill the screen */
+        .reading-container {
+            background-color: white;
+            color: black;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            text-align: justify;
+            width: 100%;
+            height: 100%;
+            padding: 2rem;
+            border-radius: 1rem;
+            position: relative; /* Crucial for absolute positioning of the arrows */
+            overflow-y: auto; /* Allow scrolling for long text */
+            flex-grow: 1; /* Allow the container to grow and fill space */
+        }
+        /* Collapsed state for header and controls using height animation */
+        .collapsed-header {
+            height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden;
+            border-bottom: none !important;
+        }
+        .collapsed-controls {
+            height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden;
+            border-top: none !important;
+        }
+        /* Smooth transitions for sections */
+        #header-container, #controls-container {
+            transition: all 0.3s ease-in-out;
+        }
+        /* Custom styles for the minimal arrow buttons */
+        .minimalist-arrow-btn {
+            background-color: #d1d5db; /* Ash color */
+            color: #4b5563; /* Dark gray for the arrow */
+            font-size: 1rem;
+            line-height: 1;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: background-color 0.15s ease-in-out;
+            padding: 0.5rem 0.75rem;
+            border-radius: 9999px; /* Rounded corners */
+        }
+        .minimalist-arrow-btn:hover {
+            background-color: #9ca3af;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-gray-800">
+
+    <!-- Collapse/Expand Buttons now fixed to the viewport -->
+    <button id="show-header-btn" class="fixed top-4 left-4 z-50 minimalist-arrow-btn hidden">
+        &#x25B2;
+    </button>
+    <button id="show-controls-btn" class="fixed bottom-4 left-4 z-50 minimalist-arrow-btn hidden">
+        &#x25BC;
+    </button>
+
+    <!-- Header Container with collapse transition -->
+    <div id="header-container" class="flex-none transition-all duration-300 ease-in-out">
+        <!-- Main Header -->
+        <div class="p-6 text-center border-b border-gray-300 bg-white">
+            <h1 class="text-3xl font-extrabold text-blue-600 mb-2">Speed Reading Trainer</h1>
+            <p class="text-sm text-gray-600 mb-4">Upload a PDF or paste text to begin your training.</p>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="main-content" class="flex-grow flex flex-col items-center justify-center p-6 relative transition-all duration-300 ease-in-out">
+        
+        <!-- Input section (hidden when reading starts) -->
+        <div id="input-section" class="flex flex-col w-full max-w-2xl mx-auto space-y-4">
+            <div class="flex flex-col items-center">
+                <input
+                    id="file-input"
+                    type="file"
+                    accept="application/pdf"
+                    class="block w-full max-w-md text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-blue-50 file:text-blue-700
+                      hover:file:bg-blue-100 cursor-pointer"
+                />
+                <p id="loading-message" class="mt-2 text-sm text-yellow-600 hidden">Loading PDF reader library...</p>
+            </div>
+            <div class="text-center text-sm text-gray-600">
+                - OR -
+            </div>
+            <textarea
+                id="text-input"
+                class="w-full h-48 p-4 text-sm rounded-lg border-2 border-gray-300 bg-white focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="Paste your text here..."
+            ></textarea>
+        </div>
+
+        <!-- Dedicated reading view (hidden until reading starts) -->
+        <div id="reading-view" class="absolute inset-0 flex flex-col py-4 px-12 hidden">
+            <!-- This is the container with the new styling -->
+            <div id="reading-container" class="reading-container">
+                <div id="reading-area"
+                     class="leading-relaxed w-full"
+                     style="font-size: 24px; font-family: 'Inter'; line-height: 36px;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel Container with collapse transition -->
+    <div id="controls-container" class="flex-none p-6 bg-white border-t border-gray-300 rounded-t-xl transition-all duration-300 ease-in-out">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Reading Speed control -->
+            <div class="flex flex-col items-center">
+                <label for="wpm-range" class="block text-sm font-medium mb-2">Reading Speed: <span id="wpm-value">250</span> WPM</label>
+                <input
+                    id="wpm-range"
+                    type="range"
+                    min="10"
+                    max="500"
+                    value="250"
+                    class="w-full h-2 rounded-lg appearance-none bg-gray-300 accent-blue-600 cursor-pointer"
+                />
+            </div>
+            
+            <!-- Font Name control -->
+            <div class="flex flex-col items-center">
+                <label for="font-name" class="block text-sm font-medium mb-2">Font Name</label>
+                <select
+                    id="font-name"
+                    class="w-full p-2 rounded-lg bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    <option value="Inter">Inter</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Verdana">Verdana</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                </select>
+            </div>
+            
+            <!-- Font Size control -->
+            <div class="flex flex-col items-center">
+                <label for="font-size" class="block text-sm font-medium mb-2">Font Size: <span id="font-size-value">24</span>px</label>
+                <input
+                    id="font-size"
+                    type="range"
+                    min="12"
+                    max="48"
+                    value="24"
+                    class="w-full h-2 rounded-lg appearance-none bg-gray-300 accent-blue-600 cursor-pointer"
+                />
+            </div>
+            
+            <!-- Words at Once control -->
+            <div class="flex flex-col items-center">
+                <label class="block text-sm font-medium mb-2">Words at Once</label>
+                <div class="flex flex-wrap gap-2 justify-center" id="words-at-once-buttons">
+                    <button data-value="1" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-blue-600 text-white shadow-md">1</button>
+                    <button data-value="2" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-gray-300 text-gray-700 hover:bg-gray-400">2</button>
+                    <button data-value="3" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-gray-300 text-gray-700 hover:bg-gray-400">3</button>
+                    <button data-value="4" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-gray-300 text-gray-700 hover:bg-gray-400">4</button>
+                    <button data-value="5" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-gray-300 text-gray-700 hover:bg-gray-400">5</button>
+                    <button data-value="6" class="p-2 rounded-lg text-sm font-semibold transition-colors duration-150 ease-in-out bg-gray-300 text-gray-700 hover:bg-gray-400">6</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reading control buttons -->
+        <div class="flex justify-center mt-6 gap-4">
+            <button
+                id="toggle-reading-btn"
+                class="px-6 py-3 rounded-full font-bold shadow-md transform transition-all duration-200 bg-gray-400 cursor-not-allowed text-white"
+                disabled
+            >
+                Start
+            </button>
+            <button
+                id="reset-btn"
+                class="px-6 py-3 rounded-full font-bold shadow-md transform transition-all duration-200 bg-gray-400 cursor-not-allowed text-white"
+                disabled
+            >
+                Reset
+            </button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // State variables
+            let text = '';
+            let isReading = false;
+            let isPaused = false;
+            let currentWordIndex = 0;
+            let intervalId = null;
+            let isPdfjsLoaded = false;
+            let wpm = 250;
+            let wordsAtOnce = 1;
+            let fontSize = 24;
+            let fontFamily = 'Inter';
+
+            // DOM elements
+            const fileInput = document.getElementById('file-input');
+            const textInput = document.getElementById('text-input');
+            const readingArea = document.getElementById('reading-area');
+            const inputSection = document.getElementById('input-section');
+            const readingView = document.getElementById('reading-view');
+            const loadingMessage = document.getElementById('loading-message');
+            const toggleReadingBtn = document.getElementById('toggle-reading-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const wpmRange = document.getElementById('wpm-range');
+            const wpmValue = document.getElementById('wpm-value');
+            const fontSizeRange = document.getElementById('font-size');
+            const fontSizeValue = document.getElementById('font-size-value');
+            const fontNameSelect = document.getElementById('font-name');
+            const wordsAtOnceButtons = document.getElementById('words-at-once-buttons');
+
+            // DOM elements for collapse functionality
+            const headerContainer = document.getElementById('header-container');
+            const controlsContainer = document.getElementById('controls-container');
+            const showHeaderBtn = document.getElementById('show-header-btn');
+            const showControlsBtn = document.getElementById('show-controls-btn');
+
+            // --- Library Loading and Setup ---
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.3.136/build/pdf.min.js';
+            script.async = true;
+            loadingMessage.classList.remove('hidden');
+            document.body.appendChild(script);
+
+            script.onload = () => {
+                if (window.pdfjsLib) {
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.3.136/build/pdf.worker.min.js';
+                    isPdfjsLoaded = true;
+                    loadingMessage.classList.add('hidden');
+                }
+            };
+
+            // --- Core Functionality ---
+
+            const extractTextFromPdf = async (pdfFile) => {
+                if (!isPdfjsLoaded) {
+                    console.error('PDF.js library is not loaded yet.');
+                    return;
+                }
+                try {
+                    const arrayBuffer = await pdfFile.arrayBuffer();
+                    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        // Note: This PDF extraction logic flattens all text into a single string.
+                        // For this app, we will use a single space as the delimiter.
+                        fullText += content.items.map(item => item.str).join(' ') + ' ';
+                    }
+                    const cleanedText = fullText.replace(/\s+/g, ' ').trim();
+                    text = cleanedText;
+                    currentWordIndex = 0;
+                    isReading = false;
+                    isPaused = false;
+                    renderText();
+                    updateButtonStates();
+                } catch (error) {
+                    console.error('Error extracting text from PDF:', error);
+                    readingArea.innerHTML = '<p class="text-center text-lg text-red-500">Failed to load PDF. Please try a different file.</p>';
+                }
+            };
+
+            const renderText = () => {
+                if (!text) {
+                    readingArea.innerHTML = '';
+                    return;
+                }
+
+                // Split text into paragraphs based on one or more newlines
+                const paragraphs = text.split(/\n+/).filter(p => p.trim() !== '');
+                let wordCount = 0;
+                let newHtml = '';
+
+                // Iterate through each paragraph and then its words
+                paragraphs.forEach(paragraph => {
+                    const words = paragraph.trim().split(/\s+/);
+                    let paragraphHtml = '';
+
+                    words.forEach((word, index) => {
+                        const globalWordIndex = wordCount + index;
+                        const isHighlighted = globalWordIndex >= currentWordIndex && globalWordIndex < currentWordIndex + wordsAtOnce;
+                        
+                        const classes = isHighlighted ? 'highlighted' : 'blurry';
+                        paragraphHtml += `<span class="mx-1 ${classes}">${word}</span>`;
+                    });
+                    
+                    newHtml += `<p class="mb-4">${paragraphHtml}</p>`;
+                    wordCount += words.length;
+                });
+
+                readingArea.innerHTML = newHtml;
+
+                // Apply dynamic styles to the reading area
+                readingArea.style.fontSize = `${fontSize}px`;
+                readingArea.style.fontFamily = fontFamily;
+            };
+
+            const startReading = () => {
+                const words = text.split(/\s+/);
+                if (intervalId) clearInterval(intervalId);
+
+                const wordsPerSecond = wpm / 60;
+                const intervalDuration = (1000 * wordsAtOnce) / wordsPerSecond;
+
+                intervalId = setInterval(() => {
+                    currentWordIndex += wordsAtOnce;
+                    if (currentWordIndex >= words.length) {
+                        currentWordIndex = 0;
+                        isReading = false;
+                        isPaused = false;
+                        clearInterval(intervalId);
+                        updateButtonStates();
+                        // Bring back collapsed sections on completion
+                        headerContainer.classList.remove('collapsed-header');
+                        controlsContainer.classList.remove('collapsed-controls');
+                        showHeaderBtn.classList.add('hidden');
+                        showControlsBtn.classList.add('hidden');
+                    }
+                    renderText();
+                }, intervalDuration);
+            };
+
+            // --- Event Handlers and Listeners ---
+
+            const updateButtonStates = () => {
+                const hasText = text.length > 0;
+                toggleReadingBtn.disabled = !hasText;
+                resetBtn.disabled = !hasText;
+                
+                if (!hasText) {
+                    toggleReadingBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    toggleReadingBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    resetBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    resetBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                } else {
+                    toggleReadingBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    resetBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    toggleReadingBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                    resetBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                }
+
+                if (isReading) {
+                    toggleReadingBtn.textContent = 'Pause';
+                    toggleReadingBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    toggleReadingBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+                } else {
+                    toggleReadingBtn.textContent = 'Start';
+                    toggleReadingBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
+                    toggleReadingBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                }
+                
+                if (isPaused) {
+                     toggleReadingBtn.textContent = 'Resume';
+                }
+            };
+            
+            toggleReadingBtn.addEventListener('click', () => {
+                if (!text && textInput.value) {
+                    text = textInput.value;
+                    renderText();
+                }
+                if (text.length === 0) return;
+
+                if (isReading && !isPaused) {
+                    isPaused = true;
+                    clearInterval(intervalId);
+                    updateButtonStates();
+                } else if (isReading && isPaused) {
+                    isPaused = false;
+                    startReading();
+                    updateButtonStates();
+                } else {
+                    isReading = true;
+                    isPaused = false;
+                    startReading();
+                    updateButtonStates();
+                    // Hide input and show reading view
+                    inputSection.classList.add('hidden');
+                    readingView.classList.remove('hidden');
+                    // Collapse header and controls, show arrow buttons
+                    headerContainer.classList.add('collapsed-header');
+                    controlsContainer.classList.add('collapsed-controls');
+                    showHeaderBtn.classList.remove('hidden');
+                    showControlsBtn.classList.remove('hidden');
+                }
+            });
+
+            resetBtn.addEventListener('click', () => {
+                isReading = false;
+                isPaused = false;
+                currentWordIndex = 0;
+                clearInterval(intervalId);
+                renderText();
+                updateButtonStates();
+                // Show input and hide reading view
+                inputSection.classList.remove('hidden');
+                readingView.classList.add('hidden');
+                // Bring back collapsed sections
+                headerContainer.classList.remove('collapsed-header');
+                controlsContainer.classList.remove('collapsed-controls');
+                showHeaderBtn.classList.add('hidden');
+                showControlsBtn.classList.add('hidden');
+            });
+
+            fileInput.addEventListener('change', (event) => {
+                const uploadedFile = event.target.files[0];
+                if (uploadedFile && uploadedFile.type === 'application/pdf') {
+                    textInput.value = ''; // Clear text input
+                    extractTextFromPdf(uploadedFile);
+                } else {
+                    // Replaced alert with a custom message in the UI
+                    alert('Please upload a valid PDF file.');
+                }
+            });
+            
+            textInput.addEventListener('input', () => {
+                if (textInput.value) {
+                    fileInput.value = null; // Clear file input
+                    text = textInput.value;
+                } else {
+                    text = '';
+                }
+                updateButtonStates();
+            });
+
+            wpmRange.addEventListener('input', (e) => {
+                wpm = Number(e.target.value);
+                wpmValue.textContent = wpm;
+                if (isReading && !isPaused) {
+                    startReading();
+                }
+            });
+
+            fontSizeRange.addEventListener('input', (e) => {
+                fontSize = Number(e.target.value);
+                fontSizeValue.textContent = fontSize;
+                readingArea.style.fontSize = `${fontSize}px`;
+                readingArea.style.lineHeight = `${fontSize * 1.5}px`;
+            });
+            
+            fontNameSelect.addEventListener('change', (e) => {
+                fontFamily = e.target.value;
+                readingArea.style.fontFamily = fontFamily;
+            });
+
+            wordsAtOnceButtons.addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (button) {
+                    wordsAtOnceButtons.querySelectorAll('button').forEach(btn => {
+                        btn.classList.remove('bg-blue-600', 'text-white', 'shadow-md');
+                        btn.classList.add('bg-gray-300', 'text-gray-700', 'hover:bg-gray-400');
+                    });
+                    button.classList.add('bg-blue-600', 'text-white', 'shadow-md');
+                    button.classList.remove('bg-gray-300', 'text-gray-700', 'hover:bg-gray-400');
+                    
+                    wordsAtOnce = Number(button.dataset.value);
+
+                    if (isReading && !isPaused) {
+                        startReading();
+                    }
+                }
+            });
+
+            // Event listeners for the new collapse/expand buttons
+            showHeaderBtn.addEventListener('click', () => {
+                headerContainer.classList.toggle('collapsed-header');
+            });
+
+            showControlsBtn.addEventListener('click', () => {
+                controlsContainer.classList.toggle('collapsed-controls');
+            });
+
+            updateButtonStates();
+        })();
+    </script>
+</body>
+</html>
